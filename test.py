@@ -1,11 +1,11 @@
 import argparse
 
 import torch
+from torch.utils.data import DataLoader
 from torchvision.transforms import Compose, CenterCrop
-
 from data.transforms import NormalizeVideo, ToTensorVideo
 from models.spatiotemporal_net import get_model
-
+from tqdm import tqdm
 import cv2
 import numpy as np
 from PIL import Image
@@ -24,7 +24,7 @@ def load_video_frames(video_path):
             break
 
         # Convert the frame to RGB format
-        frame_rgb = Image.fromarray(cv2.cvtColor(frame, cv2.COLOR_BGR2RGB))
+        frame_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
 
         # Append the frame to the list
         frames.append(frame_rgb)
@@ -34,8 +34,14 @@ def load_video_frames(video_path):
 
     # Convert the list of frames to a NumPy array
     frames_array = np.stack(frames)
-    frames_array = torch.from_numpy(frames_array).unsqueeze(-1)
-    return frames_array
+
+    # Transpose to match the desired shape [T, H, W, C]
+    frames_array = np.transpose(frames_array, (0, 3, 1, 2))
+    # frames_array = torch.from_numpy(frames_array)
+    # Convert NumPy array to PyTorch tensor
+    frames_tensor = torch.from_numpy(frames_array).unsqueeze(-1)
+
+    return frames_tensor
 
 # Example usage:
 # video_path = "path/to/your/video.mp4"
@@ -55,18 +61,20 @@ def parse_args():
 
 def evaluate_video(model, video_frames, args):
     model.eval()
-
+    print(video_frames.shape)
     # Define the transformation for each video frame
     transform = Compose([ToTensorVideo(), CenterCrop((88, 88)), NormalizeVideo((0.421,), (0.165,))])
 
     # Create a DataLoader to handle batching and transformation
-    data_loader = DataLoader(video_frames, batch_size=args.batch_size, shuffle=False)
+    data_loader = DataLoader(video_frames, batch_size=32, shuffle=False)
 
     video_to_logits = []
     with torch.no_grad():
-        for batch_frames in data_loader:
+        for batch_frames in tqdm(data_loader):
+            # print(batch_frames.shape)
             # Apply the transformation to the batch of frames
-            batch_frames = transform(batch_frames)
+            batch_frames_transformed = torch.stack([transform(frame) for frame in batch_frames])
+            batch_frames = batch_frames_transformed
             batch_frames = batch_frames.to(args.device)
 
             # Forward
