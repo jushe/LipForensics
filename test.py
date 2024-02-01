@@ -8,6 +8,7 @@ from models.spatiotemporal_net import get_model
 
 import cv2
 import numpy as np
+from PIL import Image
 
 def load_video_frames(video_path):
     # Open the video file
@@ -23,7 +24,7 @@ def load_video_frames(video_path):
             break
 
         # Convert the frame to RGB format
-        frame_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+        frame_rgb = Image.fromarray(cv2.cvtColor(frame, cv2.COLOR_BGR2RGB))
 
         # Append the frame to the list
         frames.append(frame_rgb)
@@ -32,8 +33,8 @@ def load_video_frames(video_path):
     cap.release()
 
     # Convert the list of frames to a NumPy array
-    frames_array = np.array(frames)
-
+    frames_array = np.stack(frames)
+    frames_array = torch.from_numpy(sample).unsqueeze(-1)
     return frames_array
 
 # Example usage:
