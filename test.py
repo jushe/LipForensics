@@ -34,7 +34,7 @@ def load_video_frames(video_path):
 
     # Convert the list of frames to a NumPy array
     frames_array = np.stack(frames)
-    frames_array = torch.from_numpy(sample).unsqueeze(-1)
+    frames_array = torch.from_numpy(frames_array).unsqueeze(-1)
     return frames_array
 
 # Example usage:
