@@ -56,15 +56,30 @@ def parse_args():
 def evaluate_video(model, video_frames, args):
     model.eval()
 
+    # Define the transformation for each video frame
     transform = Compose([ToTensorVideo(), CenterCrop((88, 88)), NormalizeVideo((0.421,), (0.165,))])
-    video_tensor = transform(video_frames)
 
+    # Create a DataLoader to handle batching and transformation
+    data_loader = DataLoader(video_frames, batch_size=args.batch_size, shuffle=False)
+
+    video_to_logits = []
     with torch.no_grad():
-        video_tensor = video_tensor.unsqueeze(0).to(args.device)
-        logits = model(video_tensor, lengths=[args.frames_per_clip])
-        score = torch.sigmoid(logits).item()
+        for batch_frames in data_loader:
+            # Apply the transformation to the batch of frames
+            batch_frames = transform(batch_frames)
+            batch_frames = batch_frames.to(args.device)
 
-    return score
+            # Forward
+            logits = model(batch_frames, lengths=[args.frames_per_clip] * batch_frames.shape[0])
+            video_to_logits.append(logits)
+
+    # Concatenate logits from all batches
+    video_logits = torch.cat(video_to_logits, dim=0)
+
+    # Calculate the final score (e.g., average or max)
+    final_score = torch.sigmoid(video_logits).mean().item()
+
+    return final_score
 
 def main():
     args = parse_args()
